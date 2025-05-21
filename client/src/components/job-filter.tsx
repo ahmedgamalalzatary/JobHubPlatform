@@ -133,7 +133,7 @@ export function JobFilter({ onFilterChange, currentFilters }: JobFilterProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">{t("allCategories")}</SelectItem>
+                      <SelectItem value="all">{t("allCategories")}</SelectItem>
                       {JOB_CATEGORIES.map((category) => (
                         <SelectItem key={category} value={category}>
                           {t(category.toLowerCase())}
@@ -159,7 +159,7 @@ export function JobFilter({ onFilterChange, currentFilters }: JobFilterProps) {
                       className="flex flex-col space-y-1"
                     >
                       <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="" id="job-type-all" />
+                        <RadioGroupItem value="all" id="job-type-all" />
                         <label
                           htmlFor="job-type-all"
                           className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${
@@ -205,7 +205,7 @@ export function JobFilter({ onFilterChange, currentFilters }: JobFilterProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">{t("allLocations")}</SelectItem>
+                      <SelectItem value="all">{t("allLocations")}</SelectItem>
                       {LOCATIONS.map((location) => (
                         <SelectItem key={location} value={location}>
                           {t(location.toLowerCase().replace(/\s+/g, ""))}
@@ -255,7 +255,7 @@ export function JobFilter({ onFilterChange, currentFilters }: JobFilterProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">{t("anySalary")}</SelectItem>
+                      <SelectItem value="all">{t("anySalary")}</SelectItem>
                       {SALARY_RANGES.map((range) => (
                         <SelectItem key={range} value={range}>
                           {t(range.toLowerCase().replace(/\s+/g, "").replace(/\$/g, ""))}
