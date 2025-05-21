@@ -114,9 +114,9 @@ export function Footer() {
             <ul className="mt-4 space-y-4">
               <li>
                 <Link href={ROUTES.JOBS}>
-                  <a className="text-base text-gray-300 hover:text-white">
+                  <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                     {t("jobSearch")}
-                  </a>
+                  </div>
                 </Link>
               </li>
               <li>
@@ -126,16 +126,16 @@ export function Footer() {
               </li>
               <li>
                 <Link href={ROUTES.SAVED_JOBS}>
-                  <a className="text-base text-gray-300 hover:text-white">
+                  <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                     {t("savedJobs")}
-                  </a>
+                  </div>
                 </Link>
               </li>
               <li>
                 <Link href={ROUTES.JOB_SOURCES}>
-                  <a className="text-base text-gray-300 hover:text-white">
+                  <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                     {t("submitJobSource")}
-                  </a>
+                  </div>
                 </Link>
               </li>
             </ul>
