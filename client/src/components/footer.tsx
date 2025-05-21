@@ -120,9 +120,9 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("jobAlerts")}
-                </a>
+                </div>
               </li>
               <li>
                 <Link href={ROUTES.SAVED_JOBS}>
@@ -147,24 +147,24 @@ export function Footer() {
             </h3>
             <ul className="mt-4 space-y-4">
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("aboutUs")}
-                </a>
+                </div>
               </li>
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("blog")}
-                </a>
+                </div>
               </li>
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("partners")}
-                </a>
+                </div>
               </li>
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("contactUs")}
-                </a>
+                </div>
               </li>
             </ul>
           </div>
@@ -175,19 +175,19 @@ export function Footer() {
             </h3>
             <ul className="mt-4 space-y-4">
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("privacyPolicy")}
-                </a>
+                </div>
               </li>
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("terms")}
-                </a>
+                </div>
               </li>
               <li>
-                <a href="#" className="text-base text-gray-300 hover:text-white">
+                <div className="text-base text-gray-300 hover:text-white cursor-pointer">
                   {t("cookiePolicy")}
-                </a>
+                </div>
               </li>
             </ul>
           </div>
