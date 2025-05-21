@@ -1,10 +1,39 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
+
+// Extend Express Request type to include session with userId
+declare module "express-session" {
+  interface SessionData {
+    userId: number;
+  }
+}
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { pool } from "./db";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Setup session store with PostgreSQL
+const PgSession = connectPgSimple(session);
+
+// Configure session middleware
+app.use(session({
+  store: new PgSession({
+    pool: pool,
+    tableName: 'user_sessions', // Name of the session table
+    createTableIfMissing: true // Auto-create the session table
+  }),
+  secret: process.env.SESSION_SECRET || 'jobhub-session-secret', 
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+  }
+}));
 
 app.use((req, res, next) => {
   const start = Date.now();
