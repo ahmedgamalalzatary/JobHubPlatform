@@ -20,10 +20,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      // Set user in session
-      if (req.session) {
-        req.session.userId = user.id;
-      }
+      // Set user in session and save it
+      req.session.userId = user.id;
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      
+      console.log(`User authenticated: ${user.id}, Session ID: ${req.sessionID}`);
       
       const { password: _, ...userWithoutPassword } = user;
       return res.status(200).json(userWithoutPassword);
@@ -61,10 +71,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         preferredLanguage: preferredLanguage || "en",
       });
       
-      // Set user in session
-      if (req.session) {
-        req.session.userId = newUser.id;
-      }
+      // Set user in session and save it
+      req.session.userId = newUser.id;
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
+          if (err) {
+            console.error("Session save error:", err);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      
+      console.log(`User registered: ${newUser.id}, Session ID: ${req.sessionID}`);
       
       const { password: _, ...userWithoutPassword } = newUser;
       return res.status(201).json(userWithoutPassword);
@@ -85,13 +105,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    if (!req.session?.userId) {
+    // Debug session information
+    console.log(`Session check: Session ID ${req.sessionID}, User ID: ${req.session.userId || 'not set'}`);
+    
+    if (!req.session.userId) {
       return res.status(401).json({ message: "Not authenticated" });
     }
     
     try {
       const user = await storage.getUser(req.session.userId);
       if (!user) {
+        console.log(`User not found in database: ${req.session.userId}`);
+        // Clear invalid session
+        req.session.destroy((err) => {
+          if (err) console.error("Error destroying invalid session:", err);
+        });
         return res.status(404).json({ message: "User not found" });
       }
       
