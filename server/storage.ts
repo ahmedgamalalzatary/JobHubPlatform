@@ -15,6 +15,8 @@ import {
   type Notification,
   type InsertNotification,
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, and, desc, sql, like, or, isNull } from "drizzle-orm";
 
 // Storage interface
 export interface IStorage {
@@ -485,4 +487,347 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { db } from "./db";
+import { eq, and, desc, sql, like, or, isNull } from "drizzle-orm";
+
+export class DatabaseStorage implements IStorage {
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...userData,
+        avatar: null,
+        preferredLanguage: userData.preferredLanguage || "en",
+      })
+      .returning();
+      
+    // Create welcome notification
+    this.createNotification({
+      userId: user.id,
+      title: "Welcome to JobHub!",
+      message: "Thank you for joining JobHub. Start exploring job opportunities now."
+    });
+    
+    return user;
+  }
+
+  async updateUser(id: number, data: Partial<User>): Promise<User> {
+    const [updatedUser] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser;
+  }
+  
+  // Job methods
+  async getJobs(filters: any, page: number, limit: number): Promise<{ data: Job[], total: number, page: number, limit: number, totalPages: number }> {
+    const offset = (page - 1) * limit;
+    
+    let query = db.select().from(jobs);
+    const conditions = [];
+    
+    // Apply filters
+    if (filters) {
+      if (filters.search) {
+        const searchTerm = `%${filters.search.toLowerCase()}%`;
+        conditions.push(
+          or(
+            like(sql`LOWER(${jobs.title})`, searchTerm),
+            like(sql`LOWER(${jobs.company})`, searchTerm),
+            like(sql`LOWER(${jobs.description})`, searchTerm)
+          )
+        );
+      }
+      
+      if (filters.category && filters.category !== 'all') {
+        conditions.push(eq(jobs.category, filters.category));
+      }
+      
+      if (filters.jobType && filters.jobType !== 'all') {
+        conditions.push(eq(jobs.jobType, filters.jobType));
+      }
+      
+      if (filters.location && filters.location !== 'all') {
+        conditions.push(
+          or(
+            like(jobs.location, `%${filters.location}%`),
+            eq(jobs.country, filters.location)
+          )
+        );
+      }
+      
+      if (filters.remote) {
+        conditions.push(eq(jobs.remote, true));
+      }
+    }
+    
+    // Apply WHERE conditions
+    if (conditions.length > 0) {
+      for (const condition of conditions) {
+        query = query.where(condition);
+      }
+    }
+    
+    // Count total records with applied filters
+    const countQuery = db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs);
+      
+    if (conditions.length > 0) {
+      for (const condition of conditions) {
+        countQuery.where(condition);
+      }
+    }
+    
+    const countResult = await countQuery.execute();
+    const total = Number(countResult[0]?.count || 0);
+    
+    // Apply sorting
+    if (filters?.sortBy === 'recent') {
+      query = query.orderBy(desc(jobs.createdAt));
+    } else if (filters?.sortBy === 'salary') {
+      // For text-based salary field, this is approximate
+      // In a real app, you'd have numeric salary fields for proper sorting
+      query = query.orderBy(desc(jobs.salary));
+    }
+    
+    // Apply pagination
+    const jobsList = await query.limit(limit).offset(offset).execute();
+    
+    return {
+      data: jobsList,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  async getJob(id: number): Promise<Job | undefined> {
+    const [job] = await db.select().from(jobs).where(eq(jobs.id, id));
+    return job || undefined;
+  }
+  
+  // Saved Jobs methods
+  async saveJob(userId: number, jobId: number): Promise<SavedJob> {
+    const [savedJob] = await db
+      .insert(savedJobs)
+      .values({ 
+        userId, 
+        jobId, 
+        createdAt: new Date() 
+      })
+      .returning();
+    return savedJob;
+  }
+
+  async unsaveJob(userId: number, jobId: number): Promise<void> {
+    await db
+      .delete(savedJobs)
+      .where(and(eq(savedJobs.userId, userId), eq(savedJobs.jobId, jobId)));
+  }
+
+  async getSavedJobsByUserId(userId: number): Promise<SavedJob[]> {
+    return await db
+      .select()
+      .from(savedJobs)
+      .where(eq(savedJobs.userId, userId));
+  }
+
+  async isJobSavedByUser(userId: number, jobId: number): Promise<boolean> {
+    const [result] = await db
+      .select()
+      .from(savedJobs)
+      .where(and(eq(savedJobs.userId, userId), eq(savedJobs.jobId, jobId)));
+    return !!result;
+  }
+
+  async getSavedJobs(userId: number, page: number, limit: number): Promise<{ data: Job[], total: number, page: number, limit: number, totalPages: number }> {
+    const offset = (page - 1) * limit;
+    
+    // Join savedJobs and jobs tables
+    const joinQuery = db
+      .select({
+        job: jobs
+      })
+      .from(savedJobs)
+      .innerJoin(jobs, eq(savedJobs.jobId, jobs.id))
+      .where(eq(savedJobs.userId, userId))
+      .orderBy(desc(savedJobs.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    const joinResult = await joinQuery.execute();
+    
+    // Extract the job data from the join result
+    const savedJobsList = joinResult.map(row => row.job);
+    
+    // Count total saved jobs for this user
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(savedJobs)
+      .where(eq(savedJobs.userId, userId))
+      .execute();
+    
+    const total = Number(countResult[0]?.count || 0);
+    
+    return {
+      data: savedJobsList,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+  
+  // Job Sources methods
+  async getJobSources(page: number, limit: number): Promise<{ data: JobSource[], total: number, page: number, limit: number, totalPages: number }> {
+    const offset = (page - 1) * limit;
+    
+    // Get approved job sources
+    const sourcesList = await db
+      .select()
+      .from(jobSources)
+      .where(eq(jobSources.approved, true))
+      .orderBy(desc(jobSources.createdAt))
+      .limit(limit)
+      .offset(offset);
+    
+    // Count total approved sources
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobSources)
+      .where(eq(jobSources.approved, true))
+      .execute();
+    
+    const total = Number(countResult[0]?.count || 0);
+    
+    return {
+      data: sourcesList,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  async createJobSource(sourceData: InsertJobSource): Promise<JobSource> {
+    const [source] = await db
+      .insert(jobSources)
+      .values({
+        ...sourceData,
+        approved: false,
+        createdAt: new Date()
+      })
+      .returning();
+    return source;
+  }
+  
+  // Notification methods
+  async getNotificationsByUserId(userId: number): Promise<Notification[]> {
+    return await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async getUnreadNotificationsCount(userId: number): Promise<number> {
+    const countResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)))
+      .execute();
+    
+    return Number(countResult[0]?.count || 0);
+  }
+
+  async getNotification(id: number): Promise<Notification | undefined> {
+    const [notification] = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.id, id));
+    return notification || undefined;
+  }
+
+  async markNotificationAsRead(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, id));
+  }
+
+  async createNotification(notificationData: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values({
+        ...notificationData,
+        read: false,
+        createdAt: new Date()
+      })
+      .returning();
+    return notification;
+  }
+}
+
+// Initialize seed data function for the database
+async function seedDatabase() {
+  try {
+    // Check if there are any jobs in the database
+    const jobCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobs)
+      .execute();
+    
+    // If no jobs exist, add the mock data
+    if (Number(jobCount[0]?.count || 0) === 0) {
+      console.log("Seeding database with initial job data...");
+      
+      // Add sample jobs from mock data
+      await db.insert(jobs).values(mockJobs);
+      
+      console.log("Jobs seeded successfully!");
+    }
+    
+    // Check if there are any job sources in the database
+    const sourceCount = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(jobSources)
+      .execute();
+    
+    // If no sources exist, add the mock data
+    if (Number(sourceCount[0]?.count || 0) === 0) {
+      console.log("Seeding database with initial job sources...");
+      
+      // Add sample job sources from mock data
+      await db.insert(jobSources).values(mockJobSources);
+      
+      console.log("Job sources seeded successfully!");
+    }
+  } catch (error) {
+    console.error("Error seeding database:", error);
+  }
+}
+
+// Use the database storage implementation
+export const storage = new DatabaseStorage();
+
+// Seed the database when the server starts
+seedDatabase().catch(console.error);
