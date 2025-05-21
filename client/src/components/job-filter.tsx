@@ -61,12 +61,38 @@ export function JobFilter({ onFilterChange, currentFilters }: JobFilterProps) {
 
   const onSubmit = (data: FilterFormValues) => {
     setIsLoading(true);
+    
+    // Clean up the filter data before passing it
+    const cleanedData = {
+      ...data,
+      // Only include search if not empty
+      search: data.search?.trim() ? data.search.trim() : undefined,
+      
+      // Make sure category is valid or undefined
+      category: data.category === 'all' ? undefined : data.category,
+      
+      // Make sure jobType is valid or undefined
+      jobType: data.jobType === 'all' ? undefined : data.jobType,
+      
+      // Make sure location is valid or undefined
+      location: data.location === 'all' ? undefined : data.location,
+      
+      // Make sure salary is valid or undefined
+      salary: data.salary === 'all' || data.salary === 'Any Salary' ? undefined : data.salary,
+      
+      // Set the remote flag correctly
+      remote: data.remote === true
+    };
+    
+    // Apply new filters and reset to first page
     onFilterChange({
       ...currentFilters,
-      ...data,
+      ...cleanedData,
       page: 1, // Reset to first page when filters change
     });
+    
     setIsLoading(false);
+    console.log('Applied filters:', cleanedData);
   };
 
   return (

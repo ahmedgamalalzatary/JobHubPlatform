@@ -50,6 +50,10 @@ export const JOB_CATEGORIES = [
   'Sales',
   'Customer Service',
   'IT',
+  'Human Resources',
+  'Legal',
+  'Project Management',
+  'Language & Translation',
   'Other'
 ];
 

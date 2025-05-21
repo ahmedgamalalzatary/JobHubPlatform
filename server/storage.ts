@@ -702,7 +702,8 @@ export class DatabaseStorage implements IStorage {
     
     // Apply filters
     if (filters) {
-      if (filters.search) {
+      // Search filter - look in title, company, and description fields
+      if (filters.search && filters.search.trim() !== '') {
         const searchTerm = `%${filters.search.toLowerCase()}%`;
         conditions.push(
           or(
@@ -713,14 +714,17 @@ export class DatabaseStorage implements IStorage {
         );
       }
       
+      // Category filter
       if (filters.category && filters.category !== 'all') {
         conditions.push(eq(jobs.category, filters.category));
       }
       
+      // Job Type filter
       if (filters.jobType && filters.jobType !== 'all') {
         conditions.push(eq(jobs.jobType, filters.jobType));
       }
       
+      // Location filter - search in both location field and country field
       if (filters.location && filters.location !== 'all') {
         conditions.push(
           or(
@@ -730,8 +734,60 @@ export class DatabaseStorage implements IStorage {
         );
       }
       
-      if (filters.remote) {
+      // Remote filter - only show remote jobs if checked
+      if (filters.remote === true) {
         conditions.push(eq(jobs.remote, true));
+      }
+      
+      // Salary filter
+      if (filters.salary && filters.salary !== 'all' && filters.salary !== 'Any Salary') {
+        // Handle salary ranges in text format
+        // This is a simplified approach for text-based salary fields
+        if (filters.salary === 'Under $30k') {
+          conditions.push(like(jobs.salary, '%$%K%'));
+          conditions.push(
+            or(
+              like(jobs.salary, '%$1%K%'),
+              like(jobs.salary, '%$2%K%')
+            )
+          );
+        } else if (filters.salary === '$30k - $50k') {
+          conditions.push(
+            or(
+              like(jobs.salary, '%$3%K%'),
+              like(jobs.salary, '%$4%K%'),
+              like(jobs.salary, '%$50K%')
+            )
+          );
+        } else if (filters.salary === '$50k - $80k') {
+          conditions.push(
+            or(
+              like(jobs.salary, '%$5%K%'),
+              like(jobs.salary, '%$6%K%'),
+              like(jobs.salary, '%$7%K%'),
+              like(jobs.salary, '%$80K%')
+            )
+          );
+        } else if (filters.salary === '$80k - $100k') {
+          conditions.push(
+            or(
+              like(jobs.salary, '%$8%K%'),
+              like(jobs.salary, '%$9%K%'),
+              like(jobs.salary, '%$10%K%')
+            )
+          );
+        } else if (filters.salary === '$100k+') {
+          conditions.push(
+            or(
+              like(jobs.salary, '%$10%K%'),
+              like(jobs.salary, '%$11%K%'),
+              like(jobs.salary, '%$12%K%'),
+              like(jobs.salary, '%$13%K%'),
+              like(jobs.salary, '%$14%K%'),
+              like(jobs.salary, '%$15%K%')
+            )
+          );
+        }
       }
     }
     
@@ -757,16 +813,27 @@ export class DatabaseStorage implements IStorage {
     const total = Number(countResult[0]?.count || 0);
     
     // Apply sorting
-    if (filters?.sortBy === 'recent') {
+    if (!filters?.sortBy || filters?.sortBy === 'recent') {
+      // Default sort is by recency
       query = query.orderBy(desc(jobs.createdAt));
     } else if (filters?.sortBy === 'salary') {
       // For text-based salary field, this is approximate
-      // In a real app, you'd have numeric salary fields for proper sorting
       query = query.orderBy(desc(jobs.salary));
+    } else if (filters?.sortBy === 'relevance' && filters.search) {
+      // Simple relevance sorting - title matches first, then company, then description
+      // In a real app, you'd use a more sophisticated approach
+      query = query.orderBy(
+        desc(sql`CASE WHEN LOWER(${jobs.title}) LIKE ${'%' + filters.search.toLowerCase() + '%'} THEN 3
+                     WHEN LOWER(${jobs.company}) LIKE ${'%' + filters.search.toLowerCase() + '%'} THEN 2
+                     WHEN LOWER(${jobs.description}) LIKE ${'%' + filters.search.toLowerCase() + '%'} THEN 1
+                     ELSE 0 END`)
+      );
     }
     
     // Apply pagination
     const jobsList = await query.limit(limit).offset(offset).execute();
+    
+    console.log(`Applied filters: ${JSON.stringify(filters)}, Found: ${total} jobs`);
     
     return {
       data: jobsList,

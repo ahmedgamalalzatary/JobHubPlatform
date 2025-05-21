@@ -66,12 +66,27 @@ export function JobList({ filters, onFilterChange }: JobListProps) {
     
     if (value === "all") {
       // Reset any special filtering
-      updatedFilters = { ...updatedFilters };
+      updatedFilters = {
+        ...updatedFilters,
+        // Reset any active filters when switching to 'all'
+        sortBy: 'recent'
+      };
+    } else if (value === "recommended" && isAuthenticated) {
+      // Filter for recommended jobs (e.g., matching user's profile)
+      updatedFilters = {
+        ...updatedFilters,
+        sortBy: 'relevance',
+        // In a real implementation, we would add additional filters
+        // based on the user's profile, skills, and preferences
+      };
     } else if (value === "saved" && isAuthenticated) {
-      // For "saved" tab, we'll use the saved jobs endpoint in the actual implementation
+      // For "saved" tab, we would redirect to saved jobs page instead
+      // This is just a placeholder for the demo
+      return;
     }
     
     onFilterChange(updatedFilters);
+    console.log(`Tab changed to: ${value}, applied filters:`, updatedFilters);
   };
 
   return (
